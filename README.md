@@ -1,4 +1,5 @@
-🛒 Django Marketplace Web Application
+🛒 Django Marketplace Web Application: 
+
 A full-featured Marketplace Web Application built using Django, where users can register, upload products under categories, and chat with other users interested in buying those products.
 
 🚀 Features
