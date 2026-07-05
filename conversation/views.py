@@ -27,7 +27,7 @@ class ConversationDetailView(APIView):
 
     def get(self, request, pk):
         conversation = self.get_conversation(request, pk)
-        return Response(ConversationSerializer(conversation).data)
+        return Response(ConversationSerializer(conversation, context={'request': request}).data)
 
     def post(self, request, pk):
         conversation = self.get_conversation(request, pk)
@@ -35,7 +35,10 @@ class ConversationDetailView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save(conversation=conversation, created_by=request.user)
 
-        return Response(ConversationSerializer(conversation).data, status=status.HTTP_201_CREATED)
+        return Response(
+            ConversationSerializer(conversation, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class StartConversationView(APIView):
@@ -53,7 +56,10 @@ class StartConversationView(APIView):
         existing = Conversation.objects.filter(item=item).filter(members__in=[request.user.id]).first()
 
         if existing:
-            return Response(ConversationSerializer(existing).data, status=status.HTTP_200_OK)
+            return Response(
+                ConversationSerializer(existing, context={'request': request}).data,
+                status=status.HTTP_200_OK,
+            )
 
         message_serializer = ConversationMessageSerializer(data=request.data)
         message_serializer.is_valid(raise_exception=True)
@@ -63,4 +69,7 @@ class StartConversationView(APIView):
 
         message_serializer.save(conversation=conversation, created_by=request.user)
 
-        return Response(ConversationSerializer(conversation).data, status=status.HTTP_201_CREATED)
+        return Response(
+            ConversationSerializer(conversation, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
