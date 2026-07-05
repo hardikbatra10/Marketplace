@@ -1,73 +1,66 @@
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from item.models import Item
 
-from .forms import ConversationMessageForm
 from .models import Conversation
+from .serializers import ConversationMessageSerializer, ConversationSerializer
 
-@login_required
-def new_conversation(request, item_pk):
-    item = get_object_or_404(Item, pk=item_pk)
 
-    if item.created_by == request.user:
-        return redirect('dashboard:index')
-    
-    conversations = Conversation.objects.filter(item=item).filter(members__in=[request.user.id])
+class InboxView(generics.ListAPIView):
+    serializer_class = ConversationSerializer
+    permission_classes = (permissions.IsAuthenticated,)
 
-    if conversations:
-        return redirect('conversation:detail', pk=conversations.first().id)
+    def get_queryset(self):
+        return Conversation.objects.filter(members__in=[self.request.user.id])
 
-    if request.method == 'POST':
-        form = ConversationMessageForm(request.POST)
 
-        if form.is_valid():
-            conversation = Conversation.objects.create(item=item)
-            conversation.members.add(request.user)
-            conversation.members.add(item.created_by)
-            conversation.save()
+class ConversationDetailView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
 
-            conversation_message = form.save(commit=False)
-            conversation_message.conversation = conversation
-            conversation_message.created_by = request.user
-            conversation_message.save()
+    def get_conversation(self, request, pk):
+        return get_object_or_404(
+            Conversation.objects.filter(members__in=[request.user.id]), pk=pk
+        )
 
-            return redirect('item:detail', pk=item_pk)
-    else:
-        form = ConversationMessageForm()
-    
-    return render(request, 'conversation/new.html', {
-        'form': form
-    })
+    def get(self, request, pk):
+        conversation = self.get_conversation(request, pk)
+        return Response(ConversationSerializer(conversation).data)
 
-@login_required
-def inbox(request):
-    conversations = Conversation.objects.filter(members__in=[request.user.id])
+    def post(self, request, pk):
+        conversation = self.get_conversation(request, pk)
+        serializer = ConversationMessageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(conversation=conversation, created_by=request.user)
 
-    return render(request, 'conversation/inbox.html', {
-        'conversations': conversations
-    })
+        return Response(ConversationSerializer(conversation).data, status=status.HTTP_201_CREATED)
 
-@login_required
-def detail(request, pk):
-    conversation = Conversation.objects.filter(members__in=[request.user.id]).get(pk=pk)
 
-    if request.method == 'POST':
-        form = ConversationMessageForm(request.POST)
+class StartConversationView(APIView):
+    permission_classes = (permissions.IsAuthenticated,)
 
-        if form.is_valid():
-            conversation_message = form.save(commit=False)
-            conversation_message.conversation = conversation
-            conversation_message.created_by = request.user
-            conversation_message.save()
+    def post(self, request, item_pk):
+        item = get_object_or_404(Item, pk=item_pk)
 
-            conversation.save()
+        if item.created_by == request.user:
+            return Response(
+                {'detail': "You can't start a conversation about your own item."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
-            return redirect('conversation:detail', pk=pk)
-    else:
-        form = ConversationMessageForm()
+        existing = Conversation.objects.filter(item=item).filter(members__in=[request.user.id]).first()
 
-    return render(request, 'conversation/detail.html', {
-        'conversation': conversation,
-        'form': form
-    })
+        if existing:
+            return Response(ConversationSerializer(existing).data, status=status.HTTP_200_OK)
+
+        message_serializer = ConversationMessageSerializer(data=request.data)
+        message_serializer.is_valid(raise_exception=True)
+
+        conversation = Conversation.objects.create(item=item)
+        conversation.members.add(request.user, item.created_by)
+
+        message_serializer.save(conversation=conversation, created_by=request.user)
+
+        return Response(ConversationSerializer(conversation).data, status=status.HTTP_201_CREATED)

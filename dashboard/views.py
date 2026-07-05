@@ -1,12 +1,12 @@
-from django.contrib.auth.decorators import login_required
-from django.shortcuts import render
+from rest_framework import generics, permissions
 
 from item.models import Item
-@login_required
-def index(request):
-    items = Item.objects.filter(created_by=request.user)
+from item.serializers import ItemSerializer
 
-    return render(request, 'dashboard/index.html', {
-        'items':items,
-    })
 
+class MyItemsView(generics.ListAPIView):
+    serializer_class = ItemSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        return Item.objects.filter(created_by=self.request.user)

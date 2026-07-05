@@ -1,31 +1,16 @@
-from django.shortcuts import render, redirect
+from rest_framework import generics, permissions
 
-from item.models import Category,Item
+from .serializers import RegisterSerializer, UserSerializer
 
-from .forms import SignupForm
 
-def index(request):
-    items=Item.objects.filter(is_sold=False)[0:6]
-    categories=Category.objects.all()
-    return render(request, 'core/index.html',{
-        'categories': categories,
-        'items':items,
-    })
+class RegisterView(generics.CreateAPIView):
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = RegisterSerializer
 
-def contact(request):
-    return render(request, 'core/contact.html')
 
-def Signup(request):
-    if request.method =='POST':
-        form = SignupForm(request.POST)
+class MeView(generics.RetrieveAPIView):
+    permission_classes = (permissions.IsAuthenticated,)
+    serializer_class = UserSerializer
 
-        if form.is_valid():
-            form.save()
-
-            return redirect('/login/')
-    else:
-        form = SignupForm()
-
-    return render(request, 'core/signup.html', {
-        'form':form
-    })
+    def get_object(self):
+        return self.request.user

@@ -2,12 +2,15 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 
 urlpatterns = [
-    path('',include('core.urls')),
-    path('item/',include('item.urls')),
-    path('dashboard',include('dashboard.urls')),
-    path('inbox/', include('conversation.urls')),
     path('admin/', admin.site.urls),
-] + static(settings.MEDIA_URL,document_root = settings.MEDIA_ROOT)
+    path('api/auth/', include('core.urls')),
+    path('api/auth/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/', include('item.urls')),
+    path('api/dashboard/', include('dashboard.urls')),
+    path('api/conversations/', include('conversation.urls')),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
